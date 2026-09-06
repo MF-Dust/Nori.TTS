@@ -1,0 +1,64 @@
+name: Nori runtime checks
+
+on:
+  push:
+    branches:
+      - dev/nori-runtime
+  pull_request:
+    paths:
+      - "onnx_runtime/nori_server.py"
+      - "onnx_runtime/*.ps1"
+      - "onnx_runtime/benchmark_stream.py"
+      - "NORI.md"
+      - ".github/workflows/nori-runtime.yml"
+
+jobs:
+  python-smoke:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r onnx_runtime/requirements.txt
+          python -m pip install --no-deps tokenizers==0.22.2
+      - name: Compile Python entry points
+        run: |
+          python -m py_compile onnx_runtime/nori_server.py onnx_runtime/benchmark_stream.py
+      - name: Import Nori bootstrap
+        shell: python
+        run: |
+          import sys
+          sys.path.insert(0, "onnx_runtime")
+          import nori_server
+          assert nori_server.app.title == "Nori TTS"
+          nori_server.service.release_allocator_memory()
+
+  powershell-parse:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse PowerShell scripts
+        shell: pwsh
+        run: |
+          $scripts = Get-ChildItem onnx_runtime -Filter *.ps1
+          foreach ($script in $scripts) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              $script.FullName,
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error $_.Message }
+              throw "PowerShell parse failed: $($script.Name)"
+            }
+          }
