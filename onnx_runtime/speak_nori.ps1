@@ -14,7 +14,7 @@ $OutputDir = Split-Path -Parent $OutputPath
 New-Item -ItemType Directory -Force $OutputDir | Out-Null
 
 $Body = @{
-    model = "nori-tts"
+    model = "arktts"
     input = $Text
     voice = "nori"
     response_format = "wav"
