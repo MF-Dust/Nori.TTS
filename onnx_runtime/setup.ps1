@@ -27,8 +27,13 @@ function Resolve-Python {
 }
 
 $Python = Resolve-Python
+$VenvArgs = @($Python.Prefix) + @("-m", "venv", ".venv")
+
 Write-Host "Creating Nori TTS environment..."
-& $Python.Command @($Python.Prefix) -m venv .venv
+& $Python.Command @VenvArgs
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to create the virtual environment."
+}
 
 $VenvPython = Join-Path $Root ".venv\Scripts\python.exe"
 & $VenvPython -m pip install --upgrade pip
@@ -43,6 +48,9 @@ if ($DownloadModel) {
     }
     Write-Host "Downloading Audio8 0.6B INT4 ONNX model..."
     & $Hf download Audio8/Audio8-TTS-Preview-0.6B-ONNX-INT4 --local-dir model
+    if ($LASTEXITCODE -ne 0) {
+        throw "Model download failed."
+    }
 }
 
 Write-Host ""
